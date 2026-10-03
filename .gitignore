@@ -1,0 +1,33 @@
+# Local datasets and derived files
+data/raw/*
+!data/raw/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+
+# Local databases and fitted models
+*.db
+*.sqlite
+*.sqlite3
+/models/
+*.joblib
+*.pkl
+
+# Generated reports (keep the folder in Git)
+reports/*
+!reports/.gitkeep
+
+# Python tooling
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+.env.*
+.streamlit/secrets.toml
+.pytest_cache/
+.ruff_cache/
+.DS_Store
+
+# User-scored inputs/results and intermediate audit material
+outputs/*
+work/*

@@ -1,0 +1,13 @@
+{
+  "random_seed": 20261004,
+  "train_end": 2007,
+  "calibration_start": 2009,
+  "calibration_end": 2010,
+  "validation_start": 2012,
+  "validation_end": 2013,
+  "test_start": 2015,
+  "test_end": 2018,
+  "unseen_entity_fraction": 0.2,
+  "bootstrap_repeats": 500,
+  "walk_forward_test_years": [2009, 2011, 2013]
+}

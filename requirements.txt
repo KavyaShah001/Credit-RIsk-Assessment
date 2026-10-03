@@ -1,0 +1,8 @@
+# Direct dependencies. Use requirements.lock.txt for the exact recorded environment.
+pandas
+numpy
+scipy
+scikit-learn
+joblib
+streamlit
+matplotlib
