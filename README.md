@@ -69,7 +69,7 @@ The GitHub Actions workflow runs the existing unit tests and checks dependency c
 
 Downloaded data, fitted model files and local databases are rebuilt using the reproduction commands. The Python model implementation in `src/credit_risk/models/` is included in Git. The tests do not download datasets or retrain the full historical experiments.
 
-See [publishing and demonstration instructions](docs/github_guide.md) for creating the GitHub repository and presenting the project.
+See [the demonstration guide](docs/demo_guide.md) for a practical walkthrough of the project.
 
 ## Score another dataset
 
@@ -106,7 +106,7 @@ flowchart LR
     K --> L[Scenario sensitivity and HTML report]
 ```
 
-Code is separated into ingestion, financial analysis/features, models, evaluation, database, stress testing, reporting and dashboard modules. See [the original phased architecture](docs/architecture.md) for the development history and initial scope.
+Code is separated into ingestion, financial analysis/features, models, evaluation, database, stress testing, reporting and dashboard modules. See [the system architecture](docs/architecture.md) for module responsibilities, storage and information boundaries.
 
 ## Limitations and future work
 
@@ -128,3 +128,7 @@ python scripts/train_models.py
 ```
 
 These commands preserve the separate original experiment. See [its financial guide](docs/financial_analysis.md) and [its modeling methodology](docs/modeling_methodology.md).
+
+## License status
+
+No license has been selected for the project code. Dataset licensing and attribution are separate; consult the source references and dataset documentation above.

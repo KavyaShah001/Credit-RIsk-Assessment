@@ -1,135 +1,68 @@
-# Credit Risk Assessment & Default Prediction System
+# System architecture
 
-> This document preserves the original 10–15 hour scope. The subsequent annual-panel extension supersedes its single-source and random-split constraints. See [the current architecture](../README.md#architecture), [chronological methodology](temporal_methodology.md), and [generated results](temporal_results.md). The annual extension adds genuine fiscal-year ordering, persistent entity keys, past-only financial history, later-period calibration, and reserved unseen-company evaluation. Exact filing dates remain unavailable.
+The main experiment uses an annual financial-statement panel. A separate Polish ratio-based experiment remains available as a baseline with a different population and five-year outcome horizon.
 
-## MVP architecture and delivery plan
-
-This repository is scoped to a complete, explainable student MVP that can be built in approximately 10–15 focused hours. It is not intended to implement every advanced feature in the original full specification.
-
-## What the MVP will deliver
-
-- One public, labeled company-distress dataset and one documented prediction horizon.
-- CSV ingestion, schema checks, a reproducible SQLite load, and a compact data dictionary.
-- Financial ratio categorization and interpretation for the fields available in the chosen dataset.
-- Leakage-aware feature preparation and a train/validation/test workflow.
-- Three scikit-learn models: logistic regression, random forest, and gradient boosting.
-- ROC-AUC, PR-AUC, recall, precision, confusion matrix, Brier score, and a calibration plot; accuracy is supplementary.
-- Calibrated PD if validation data supports calibration; otherwise clearly labeled raw model PD and a calibration limitation.
-- A transparent **Project Internal Credit Risk Rating** mapping and model-based feature explanations.
-- A small Streamlit dashboard with Portfolio and Model tabs, plus company/row-level detail.
-- One documented sensitivity scenario, only for input fields that the dataset actually supports.
-- A downloadable HTML company/observation report and interview-focused README.
-
-The output is educational and is not an external rating, real lending recommendation, regulatory model, or credit approval.
-
-For this selected source, the observed label is bankruptcy within five years. Any PD-like output must be described as a model estimate against that bankruptcy proxy, not as an empirically observed contractual default probability.
-
-## Deliberate scope cuts for the 10–15 hour target
-
-- No SEC/XBRL ingestion, source matching, or multi-dataset joins.
-- No attempt to invent raw revenue, EBITDA, debt balances, named companies, sector, EAD, or LGD where the selected dataset does not provide them.
-- No exposure-weighted expected loss unless reliable EAD and LGD data are present. Otherwise the dashboard will show PD summaries only.
-- No full SHAP integration, hyperparameter search, model registry, PostgreSQL, authentication, deployment, or PDF layout work.
-- No multi-scenario stress engine. A ratio-level sensitivity, if supported and clearly labeled, is not represented as a full financial statement stress test.
-- No separate notebook project. The pipeline and app remain in reusable Python modules.
-
-## Initial dataset direction and caveat
-
-Selected starting point: the **1st-year case** from the UCI Polish companies bankruptcy dataset. UCI describes this case as financial rates from the first year with a bankruptcy outcome over the following five years; it reports 7,027 observations and 271 bankrupt firms. The dataset has 64 financial ratios and missing values and is licensed CC BY 4.0. [UCI dataset documentation](https://archive.ics.uci.edu/dataset/365/polish+companies+bankruptcy+data)
-
-This is a practical labeled modeling source, but it is not a complete feed of raw financial statement line items or identified counterparties. Therefore:
-
-- The main modeling demonstration will use the supplied ratios and future bankruptcy label.
-- Liquidity, leverage, profitability, coverage, and cash-flow analysis will use only ratios that are documented in the dataset.
-- Ratio formulas will be explained; the project will not claim to recompute ratios from unavailable raw statement amounts.
-- Dataset rows will be treated as anonymous observations. Do not call them named companies or show sector concentration unless those fields are confirmed in the data.
-- Phase 2 verified the archive, 64 ratio columns, five-year target, CC BY 4.0 license, and missingness. The selected file has no date or stable company key, so it cannot support a time-aware or company-grouped holdout; validation will document this limitation.
-
-## Architecture
+## Main pipeline
 
 ```mermaid
-flowchart LR
-    A[Public CSV] --> B[Ingestion and schema checks]
-    B --> C[(SQLite source and derived tables)]
-    C --> D[Ratio dictionary and supported financial analysis]
-    D --> E[Leakage-aware feature preparation]
-    E --> F[Train / validation / test]
-    F --> G[Logistic regression / random forest / gradient boosting]
-    G --> H[Metrics and calibration]
-    H --> I[PD, internal grade, model explanation]
-    I --> J[Streamlit portfolio and model views]
-    I --> K[HTML report]
-    D --> L[Supported sensitivity scenario]
-    L --> I
+flowchart TD
+    A[Pinned public annual statements] --> B[Checksum, schema and target-label audit]
+    B --> C[Canonical company and fiscal-year records]
+    C --> D[Financial ratios and past-only annual changes]
+    D --> E[Chronological train, calibration, validation and test splits]
+    E --> F[Training-only preprocessing and four model candidates]
+    F --> G[Later calibration and validation-based model selection]
+    G --> H[Locked test, yearly and unseen-company results]
+    C --> I[(SQLite statements)]
+    D --> J[(SQLite financial ratios)]
+    H --> K[(SQLite predictions and model metadata)]
+    H --> L[CSV metrics and generated results documentation]
+    I --> M[Streamlit company and portfolio views]
+    J --> M
+    K --> M
+    L --> M
+    M --> N[Statement scenario and HTML company report]
+    O[New canonical CSV] --> D
+    D --> P[Saved preprocessing and model for inference]
 ```
 
-## Repository layout
+## Module responsibilities
 
-```text
-credit-risk-system/
-├── data/
-│   ├── raw/                 # local source CSV; never committed
-│   └── processed/           # reproducible local outputs; never committed
-├── dashboard/
-│   └── app.py               # Streamlit portfolio, observation, stress, and model pages
-├── docs/
-│   ├── architecture.md
-│   ├── data_dictionary.md   # Phase 2
-│   └── interview_guide.md   # final documentation phase
-├── reports/                 # local generated reports; never committed
-├── scripts/
-│   ├── prepare_dataset.py   # download and convert source ARFF to CSV
-│   ├── load_sqlite.py       # validate CSV and load/query SQLite
-│   └── summarize_financial_metrics.py # calculate supported metric distributions
-├── src/credit_risk/
-│   ├── ingestion/
-│   ├── financial_analysis/
-│   ├── features/
-│   ├── models/
-│   ├── evaluation/
-│   ├── portfolio/
-│   ├── stress_testing/
-│   └── reporting/
-├── tests/                   # ingestion, financial metric, grade, and model smoke tests
-├── .gitignore
-├── README.md
-└── requirements.txt
-```
+| Location | Responsibility |
+| --- | --- |
+| `scripts/` | Command-line entry points for preparation, training, database loading, summaries and scoring |
+| `src/credit_risk/ingestion/` | Canonical input validation and source-specific adapters |
+| `src/credit_risk/financial_analysis/` | Definitions, availability and interpretation of the Polish source's supplied ratios |
+| `src/credit_risk/features/` | Ratios from annual statements, backward lags, annual changes and training-fitted clipping |
+| `src/credit_risk/models/` | Candidate models, calibration, training orchestration, scoring and project grades |
+| `src/credit_risk/evaluation/` | Split rules, metrics, cluster bootstrap, calibration summaries and feature drift |
+| `src/credit_risk/database/` | SQLite schemas, persistence, joins and retrieval |
+| `src/credit_risk/explainability/` | Individual feature-to-training-median sensitivity explanations |
+| `src/credit_risk/stress_testing/` | Annual income-statement operating-cost scenario |
+| `src/credit_risk/reporting/` | Company HTML reports and results documentation generated from run artifacts |
+| `dashboard/` | Dataset selection, portfolio aggregation, company views, scenarios and validation views |
+| `config/` | Chronological split, entity reservation and reproducibility settings |
+| `tests/` | Input, financial calculation, model persistence and leakage-control checks |
+| `docs/` | Dataset definitions, methodology, generated results, architecture and demonstration guidance |
 
-## Data flow and storage
+Portfolio aggregation currently lives in the dashboard functions. The annual view selects one fiscal year so a company is counted once in each snapshot.
 
-1. Ingestion reads the source CSV, validates expected columns and types, and records rejected rows or warnings.
-2. Canonical records preserve source row identity, feature values, outcome, and horizon. An anonymous row ID is a technical key, not a real company identity.
-3. SQLite stores source observations, computed/supporting ratios, model run metadata, predictions, risk grades, and any explicitly assumed portfolio inputs.
-4. Python functions retrieve data through a small SQL repository layer. The dashboard does not contain separate copies of modeling logic.
-5. Models are persisted as reproducible local artifacts; data, SQLite files, and model binaries are excluded from Git.
+## Storage and artifacts
 
-## Validation rules
+The annual SQLite store contains `companies`, `financial_statements`, `financial_ratios`, `model_runs`, `risk_grades` and `model_predictions`. Statement keys identify a company and fiscal year. Predictions carry the model run identifier; the dashboard checks that the model bundle and database agree.
 
-- Set a prediction horizon before training and keep the future bankruptcy label out of the feature matrix.
-- Use a time-aware split only if valid observation dates exist. If not, document the available split design and its limits; group by company only if persistent company identifiers exist.
-- Fit imputers, scalers, feature selection, and any resampling on training data only.
-- Use validation data for model choice and calibration decisions. Use the test set once for final out-of-sample reporting.
-- Report PR-AUC and recall alongside ROC-AUC because defaults are rare. Report Brier score/calibration because PD is a probability, not just a ranking.
-- Treat feature attributions as model associations, not causal explanations.
+The annual database, fitted model and report tables live under `data/processed/`, `models/temporal/` and `reports/temporal/`. The Polish experiment uses separate artifacts. Raw sources, generated databases, model binaries and personal scoring outputs are excluded from Git. Small generated result summaries under `docs/` are versioned so repository readers can inspect actual results without running training.
 
-## 10–15 hour build budget
+The `.gitkeep` files preserve the expected empty data and report directories in a fresh clone. The root `.python-version` and `requirements.lock.txt` record the reproduction environment. `requirements.txt` lists direct dependencies; the lock file also records their installed dependencies.
 
-| Phase | Target time | MVP result |
-|---|---:|---|
-| 1. Architecture | 0.5–1 hour | This architecture, folder layout, Git/GitHub setup |
-| 2. Data pipeline | 1.5–2 hours | One CSV source, schema checks, SQLite load, data dictionary |
-| 3. Financial calculations | 1.5–2 hours | Ratio mapping, supported calculations/interpretation, missing-value handling |
-| 4. Models | 3–4 hours | Features, three models, comparison, calibration attempt, internal grade, explanations |
-| 5. Testing | 1–1.5 hours | Focused checks for data, ratio edge cases, and leakage-sensitive pipeline behavior |
-| 6. Dashboard | 2–3 hours | Portfolio/model views, individual observation detail, one supported sensitivity view, HTML report |
-| 7. Final review | 1–1.5 hours | README, reproducible setup, limitations, GitHub-ready review |
+## Information boundaries
 
-This estimate assumes a working Python environment, one dataset that is readily downloadable and documented, and focused build sessions. If data access, package setup, or debugging takes longer, keep the core model and dashboard and drop the sensitivity view first.
+- IDs and fiscal years identify records and define splits; they are not predictive features.
+- Features use only the current and earlier statements of the same entity. Lags require consecutive fiscal years.
+- Preprocessing and model fitting use training observations. Separate later periods fit calibration and select the model and decision threshold.
+- Reserved entities are excluded from development; final results distinguish previously seen and unseen companies.
+- Final test results are reported without tuning model choices against them.
+- Exact filing-publication and individual bankruptcy dates are unavailable. Fiscal-year evaluation therefore does not establish a verified as-of-filing backtest.
+- A saved model accepts new canonical statements, but scoring alone does not establish validity in another population.
 
-## How you will work on it
-
-- **Where:** this project folder is the working copy. `src/credit_risk/` is where reusable logic goes; `dashboard/app.py` is the UI; `docs/` is for explanations; `data/raw/` is only for local downloaded data.
-- **How:** use a terminal opened at the project folder to run setup and pipeline commands. Edit source files in your code editor. Run and inspect one phase at a time.
-- **GitHub:** create an empty private GitHub repository. After `.gitignore` exists, initialize Git here and push the architecture commit. Commit each approved phase with a short message. Make the repository public only after reviewing source terms and confirming no raw data, database, credentials, or local model files were committed.
-- **Approval:** we will stop after each phase for your review before moving to the next one. Phases 2–6 are implemented and ready for review before Phase 7 final review.
+See [annual methodology](temporal_methodology.md), [annual results](temporal_results.md), and [the separate Polish methodology](modeling_methodology.md) for detailed financial and statistical decisions.
